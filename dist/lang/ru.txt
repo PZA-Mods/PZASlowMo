@@ -1,0 +1,33 @@
+# PZA's SlowMo - русский текст (ru). MACHINE-DRAFTED (machine-drafted by Claude for PZA, 2026-11-15):
+# not yet checked by a native speaker. Corrections are welcome and will be credited.
+#
+# Format: key = text (UTF-8). \n = new line. {1}..{3} are filled in by the mod (numbers): keep every one of them.
+# A missing or broken line shows the English text instead (the log says which).
+# Letters: only those in Kenshi's Russian fonts (ASCII and Cyrillic): no typographic quotes, no long dash.
+# Checked offline by tests\lang\check_lang.py (glyphs and widths against Kenshi's own fonts).
+
+win.title = PZA's SlowMo
+toggle.on = Замедление: ВКЛ ({1}x)
+toggle.off = Замедление: выкл ({1}x)
+speed.row = Скорость {1}x  ({2} - {3})
+
+mini.on = ЗАМ {1}x
+mini.off = зам {1}x
+
+help.back = Назад
+help.more = Далее ({1}/{2})
+help.1 = PZA's SlowMo замедляет всю игру в драматичные моменты, а потом возвращает прежнюю скорость.
+help.2 = Верхняя кнопка включает и выключает замедление (также Shift+L). Ползунок, - и + выбирают, насколько медленно. Удерживайте Shift+L и нажимайте + или -, чтобы менять скорость с клавиатуры.
+help.3 = Собственные кнопки скорости Kenshi (или F2 - F4) при включённом замедлении возвращают управление Kenshi.
+help.4 = Кнопка - или двойной щелчок по заголовку сворачивает окно в маленькую кнопку скорости: щелчок по ней переключает замедление, двойной щелчок или её + снова открывают это окно, перетаскивание двигает её, колесо мыши меняет прозрачность. F7 прячет её вместе с интерфейсом Kenshi. Все изменения сохраняются.
+
+tip.mini = Замедление: щелчок включает и выключает.\nДвойной щелчок: открыть полное окно.\nПеретащите, чтобы передвинуть.\nКолесо мыши: прозрачность.
+tip.mini_open = Открыть полное окно замедления.\nКолесо мыши: прозрачность.
+tip.toggle = Замедление вкл/выкл (также Shift+L).
+tip.minus = Медленнее (на один шаг).
+tip.plus = Быстрее (на один шаг).
+tip.fold = Свернуть в маленькую кнопку\n(или двойной щелчок по заголовку).
+tip.help = Справка: что делает\nкаждый элемент этого окна.
+
+msg.on = Замедление {1}x
+msg.off = Замедление выключено

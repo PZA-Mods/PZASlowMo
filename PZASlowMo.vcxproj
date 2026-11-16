@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PZA's SlowMo - one-click slow motion for Kenshi (RE_Kenshi / KenshiLib plugin).  Author: PZA
+  Release|x64 only. TOOLSET MUST BE v100 (VS2010): Kenshi's std::string and class layouts are VS2010's.
+  Build:  "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
+            PZASlowMo.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64
+  Dependencies are found like LEAF's: KENSHILIB_* env vars from Setup.bat, else ..\KenshiLib_Examples_deps.
+-->
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{6A2F9C31-8E4D-4B7A-A1C2-5D3E7F9B0A14}</ProjectGuid>
+    <RootNamespace>PZASlowMo</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <PropertyGroup Label="UserMacros">
+    <KenshiDepsDir Condition="'$(KenshiDepsDir)'=='' and '$(KENSHILIB_DEPS_DIR)'!=''">$(KENSHILIB_DEPS_DIR)\</KenshiDepsDir>
+    <KenshiDepsDir Condition="'$(KenshiDepsDir)'==''">$(MSBuildThisFileDirectory)..\KenshiLib_Examples_deps\</KenshiDepsDir>
+    <KenshiLibDir Condition="'$(KenshiLibDir)'=='' and '$(KENSHILIB_DIR)'!=''">$(KENSHILIB_DIR)\</KenshiLibDir>
+    <KenshiLibDir Condition="'$(KenshiLibDir)'==''">$(KenshiDepsDir)KenshiLib\</KenshiLibDir>
+    <KenshiBoostDir Condition="'$(KenshiBoostDir)'=='' and '$(BOOST_INCLUDE_PATH)'!=''">$(BOOST_INCLUDE_PATH)\</KenshiBoostDir>
+    <KenshiBoostDir Condition="'$(KenshiBoostDir)'==''">$(KenshiDepsDir)boost_1_60_0\</KenshiBoostDir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <TargetName>PZASlowMo</TargetName>
+    <OutDir>$(SolutionDir)build\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration)\</IntDir>
+    <IncludePath>$(MSBuildThisFileDirectory)src;$(KenshiLibDir)Include;$(KenshiLibDir)Include\ogre;$(KenshiBoostDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(KenshiLibDir)Libraries;$(KenshiBoostDir)stage\lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <!-- /EHa so structured exceptions (bad game pointers) unwind through the C++ bridge code -->
+      <ExceptionHandling>Async</ExceptionHandling>
+      <ForcedIncludeFiles>$(MSBuildThisFileDirectory)src\compat_shim.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;NOMINMAX;BOOST_ALL_NO_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4005;4996;4251;4275;4244;4267;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <!-- Required: KenshiLib::GetRealAddress needs /GL + /LTCG -->
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <AdditionalOptions>/PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
+      <SubSystem>Windows</SubSystem>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>KenshiLib.lib;OgreMain_x64.lib;MyGUIEngine_x64.lib;libboost_system-vc100-mt-1_60.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="src\PZASlowMo.cpp" />
+    <ClCompile Include="src\Strings.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Windows version resource (company PZA, product name, version): see PZASlowMo.rc -->
+    <ResourceCompile Include="PZASlowMo.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\compat_shim.h" />
+    <ClInclude Include="src\Strings.h" />
+    <ClInclude Include="src\StringList.h" />
+    <ClInclude Include="src\StringTable.h" />
+    <ClInclude Include="src\SlowCore.h" />
+    <ClInclude Include="src\PzaHelp.h" />
+    <ClInclude Include="src\PzaTip.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="RE_Kenshi.json" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

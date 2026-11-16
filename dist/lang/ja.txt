@@ -1,0 +1,33 @@
+# PZA's SlowMo - 日本語 (ja). MACHINE-DRAFTED (machine-drafted by Claude for PZA, 2026-11-15):
+# not yet checked by a native speaker. Corrections are welcome and will be credited.
+#
+# Format: key = text (UTF-8). \n = new line (Japanese has no spaces: put the breaks in by hand).
+# {1}..{3} are filled in by the mod (numbers): keep every one of them. A missing or broken line shows the English text.
+# Letters: only those in Kenshi's Japanese fonts (locale\ja_JP\gui\fonts\kenshi_fonts.xml).
+# Checked offline by tests\lang\check_lang.py (glyphs and widths against Kenshi's own fonts).
+
+win.title = PZA's SlowMo
+toggle.on = スロー：オン ({1}x)
+toggle.off = スロー：オフ ({1}x)
+speed.row = 速度 {1}x  ({2} - {3})
+
+mini.on = スロー中{1}x
+mini.off = スロー {1}x
+
+help.back = 戻る
+help.more = 次へ ({1}/{2})
+help.1 = PZA's SlowMo は、ドラマチックな場面でゲーム全体の速度を落とし、そのあと元の速度に戻します。
+help.2 = 上のボタンでスローモーションのオン/オフを切り替えます（Shift+L でも可）。スライダーと - / + で遅さを選びます。Shift+L を押したまま + か - を押すと、キーボードで速度を変えられます。
+help.3 = スローモーション中に Kenshi 自身の速度ボタン（または F2 から F4）を押すと、操作が Kenshi に戻ります。
+help.4 = - ボタンかタイトルのダブルクリックで、ウィンドウが小さな速度ボタンになります。クリックでスローモーションを切り替え、ダブルクリックか横の + でこのウィンドウを再び開き、ドラッグで移動、マウスホイールで不透明度を変えます。F7 で Kenshi の画面表示と一緒に隠れます。変更はすべて保存されます。
+
+tip.mini = スローモーション：クリックでオン/オフ。\nダブルクリック：ウィンドウを開く。\nドラッグで移動。マウスホイール：不透明度。
+tip.mini_open = スローモーションのウィンドウを開く。\nマウスホイール：不透明度。
+tip.toggle = スローモーションのオン/オフ（Shift+L でも可）。
+tip.minus = 遅く（1段階）。
+tip.plus = 速く（1段階）。
+tip.fold = 小さなボタンに縮小\n（またはタイトルをダブルクリック）。
+tip.help = ヘルプ：このウィンドウの\n各項目の説明。
+
+msg.on = スローモーション {1}x
+msg.off = スローモーション オフ
