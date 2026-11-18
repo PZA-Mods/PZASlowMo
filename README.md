@@ -62,6 +62,12 @@ Use the folder `tools/make_release.py` stages (`out/release/PZASlowMo-<version>/
 
 - **Hold Shift+L and tap + or -** (main row or numpad) to step the speed by 0.05 along the slider scale, with no window needed: works with F7 (hidden interface), for machinima. **Shift+L alone** still turns slow motion on/off, now on release; it does not toggle if you tapped + / - while holding it.
 
+## v1.0.1
+
+- **One Workshop item for both games:** the mod folder also carries PZA's SlowMo for Meitou 0.3.0 (`meitou.json`,
+  `PZASlowMo.Meitou.dll`, `lang/meitou.*.txt`; source: https://github.com/PZA-Mods/PZAMeitouSlowMo). RE_Kenshi loads only
+  `RE_Kenshi.json`'s DLL, Meitou only `meitou.json`'s. The RE_Kenshi plugin itself is unchanged apart from its version.
+
 ## v1.0.0
 
 - **Languages:** English, Russian, Simplified Chinese, Japanese. Every caption, tooltip, help page and message goes through

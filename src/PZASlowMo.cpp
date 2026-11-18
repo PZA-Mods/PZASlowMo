@@ -697,7 +697,7 @@ __declspec(dllexport) void startPlugin()
     HANDLE h = CreateMutexA(NULL, FALSE, mtx);
     if (h && GetLastError() == ERROR_ALREADY_EXISTS) { Log("already loaded - this copy is disabled"); CloseHandle(h); return; }
     s_dir = ModuleDir();
-    Log("v1.0.0 - PZA's SlowMo (one click or Shift+L; slider 0.10-0.60) for Kenshi, by PZA");
+    Log("v1.0.1 - PZA's SlowMo (one click or Shift+L; slider 0.10-0.60) for Kenshi, by PZA");
     LoadSettings();
     slowmo::Strings_Init(IniPath().c_str(), &LogLine);
     if (!g.enabled) { Log("Enabled=0 - inactive"); return; }
