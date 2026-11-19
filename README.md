@@ -5,6 +5,8 @@ and it always lands exactly on 0.10, 0.50 and 0.60. Click again (or Shift+L) to 
 
 Author: PZA. Licence: GPLv3 or later (KenshiLib is GPLv3). Needs RE_Kenshi.
 
+![PZA's SlowMo in Meitou: a duel and a kill](https://raw.githubusercontent.com/PZA-Mods/PZASlowMo/main/media/slowmo-meitou-duel.gif)
+
 ## Use
 - The small **Slow motion** window (Kenshi's own window style) sits next to Kenshi's speed buttons; drag it by its title.
   - The top button turns slow motion on and off.
