@@ -33,6 +33,7 @@ SLOW_STR(S_HELP_MORE,   "help.more",   'P', 150, "More ({1}/{2})")
 SLOW_STR(S_HELP_1,      "help.1",      'H', 310, "PZA's SlowMo slows the whole game down for dramatic moments, then puts it back.")
 SLOW_STR(S_HELP_2,      "help.2",      'H', 310, "The top button switches slow motion on and off (also Shift+L). The slider, - and + pick how slow. Hold Shift+L and tap + or - to change the speed from the keyboard.")
 SLOW_STR(S_HELP_3,      "help.3",      'H', 310, "Kenshi's own speed buttons (or F2 to F4) while it's on hand control back to Kenshi.")
+SLOW_STR(S_HELP_5,      "help.5",      'H', 310, "Kill cam (KillCam=1 in PZASlowMo.ini, off by default): when a selected character kills, knocks out or severs a limb, time runs slow for a moment (0.25x for 1 second, both set in the ini; KillCamKills, KillCamKnockouts and KillCamLimbs switch each kind; KillCamDodges and KillCamOwn add dodges and your own character going down).")
 SLOW_STR(S_HELP_4,      "help.4",      'H', 310, "The - button, or a double-click on the title, shrinks the window to a tiny speed button: click it to switch slow motion, double-click it or press its + to open this window again, drag it to move it, mouse wheel for opacity. F7 hides it with Kenshi's interface. Everything you change is saved.")
 // ---- hover help
 SLOW_STR(S_TIP_MINI,    "tip.mini",    'T',   0, "Slow motion: click to switch it on/off.\nDouble-click: open the full window.\nDrag to move it. Mouse wheel: opacity.")

@@ -20,6 +20,7 @@ help.1 = PZA's SlowMo 会在精彩时刻放慢整个游戏，之后再恢复原�
 help.2 = 顶部按钮开关慢动作（也可按 Shift+L）。用滑块、- 和 + 选择放慢的程度。按住 Shift+L 再按 + 或 -，即可用键盘调整速度。
 help.3 = 慢动作开启时，使用 Kenshi 自带的速度按钮（或 F2 到 F4）会把控制权交还给 Kenshi。
 help.4 = 点 - 按钮或双击标题栏，窗口会缩成一个小的速度按钮：单击它切换慢动作，双击它或点它旁边的 + 重新打开此窗口，拖动它可以移动位置，鼠标滚轮调整不透明度。按 F7 时它会随 Kenshi 的界面一起隐藏。所有更改都会自动保存。
+help.5 = Kill cam（PZASlowMo.ini 中的 KillCam=1，默认关闭）：选中的角色击杀、击晕或砍断肢体时，时间会短暂变慢（0.25x，持续 1 秒，两者都在 ini 中设置；KillCamKills、KillCamKnockouts 和 KillCamLimbs 分别开关三种情况；KillCamDodges 和 KillCamOwn 加上闪避和你自己的角色倒下）。
 
 tip.mini = 慢动作：单击开/关。\n双击：打开完整窗口。\n拖动可移动。鼠标滚轮：不透明度。
 tip.mini_open = 打开完整的慢动作窗口。\n鼠标滚轮：不透明度。

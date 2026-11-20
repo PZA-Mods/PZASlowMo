@@ -102,4 +102,43 @@ namespace slowcore
         c.main = mainDown; c.plus = plusDown; c.minus = minusDown;
         return act;
     }
+
+    // ---- v1.1.0 kill cam (KillCam=1 in the ini, off by default; the user, 2026-11-19): when the selected character kills,
+    // knocks out or severs a limb, time drops to KillCamSpeed for KillCamSeconds of real time, then comes back.
+    // Same rules as PZA's SlowMo for Meitou 0.4.0 (KillCamCore.cs). The hit hooks read the victim just before and just after
+    // the hit, so here every "before" is known.
+    enum KcKind { KC_NONE = 0, KC_KILL = 1, KC_KO = 2, KC_LIMB = 3, KC_DODGE = 4 };
+    struct KcSnap { bool valid, down, dead; int severed; };   // down = unconscious or dead (MedicalSystem::isUnconcious)
+    // v1.1.1 (the user, 2026-11-19): each kind can be switched off: on = KC_ON_KILL | KC_ON_KO | KC_ON_LIMB (KillCamKills /
+    // KillCamKnockouts / KillCamLimbs). A hit that did two things (a killing blow that also took an arm) counts for the kind that is on.
+    enum { KC_ON_KILL = 1, KC_ON_KO = 2, KC_ON_LIMB = 4, KC_ON_ALL = 7 };
+    inline int KcJudge(const KcSnap& before, const KcSnap& after, int on = KC_ON_ALL)
+    {
+        if (!before.valid || !after.valid || before.dead) return KC_NONE;   // unreadable, or hits on a corpse: never a moment
+        if ((on & KC_ON_KILL) && after.dead) return KC_KILL;                // a downed victim finished off counts too
+        if ((on & KC_ON_KO) && !before.down && after.down && !after.dead) return KC_KO;
+        if ((on & KC_ON_LIMB) && after.severed > before.severed) return KC_LIMB;
+        return KC_NONE;
+    }
+    // v1.1.2 (the user, 2026-11-19): whose hit makes a moment. A selected attacker always counts; a selected VICTIM (your own
+    // character killed, knocked out or losing a limb) only with KillCamOwn=1. Hitting yourself never counts.
+    inline bool KcCounts(bool attackerSelected, bool victimSelected, bool sameCharacter, bool ownOn) { return !sameCharacter && (attackerSelected || (ownOn && victimSelected)); }
+    // v1.1.2: a dodge. Character::hitByMeleeAttack returns HIT_MISSED (0) for a blow its victim dodged (MeitouClient
+    // docs/game/combat.md: HIT_MISSED dodged, HIT_SWORD blocked, flesh / metal hit); a selected victim with KillCamDodges=1 makes a moment.
+    inline bool KcDodge(int hitMaterial, bool victimSelected, bool dodgesOn) { return dodgesOn && victimSelected && hitMaterial == 0; }
+    // the ini values, clamped: speed 0.10 .. 0.60 in hundredths (NaN -> 0.25), length 250 .. 3000 ms (NaN -> 1000)
+    inline int KcSpeedH(float v) { const int h = ToH(v, 25); return h < 10 ? 10 : (h > 60 ? 60 : h); }
+    inline int KcMillis(float v) { if (!(v == v)) return 1000; const float ms = v * 1000.0f; return ms < 250.0f ? 250 : (ms > 3000.0f ? 3000 : (int)(ms + 0.5f)); }
+    // a moment starts only when it would make the game slower than it runs now (slow motion at 0.20 is left alone);
+    // curSpeed = what Kenshi reports, paused = Kenshi is paused (a pause stays a pause)
+    inline bool KcStarts(float curSpeed, bool paused, int kcH) { return !paused && curSpeed == curSpeed && curSpeed > kcH / 100.0f + 0.004f; }
+    // the end of a moment: 0 = keep it, 1 = over: put the speed back, 2 = the player changed the speed meanwhile: leave it
+    inline int KcEnd(unsigned long long now, unsigned long long until, float curSpeed, bool paused, int kcH)
+    {
+        if (!paused && curSpeed == curSpeed && curSpeed > 0.0f && (curSpeed - kcH / 100.0f > 0.004f || kcH / 100.0f - curSpeed > 0.004f)) return 2;
+        if (paused) return 0;   // the moment waits out a pause (it ends after the game runs again)
+        return now >= until ? 1 : 0;
+    }
+    // a new trigger during a moment extends it, never shortens it
+    inline unsigned long long KcExtend(unsigned long long until, unsigned long long now, int ms) { const unsigned long long e = now + (unsigned long long)(ms < 0 ? 0 : ms); return e > until ? e : until; }
 }

@@ -17,6 +17,9 @@
 #include <core/Functions.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/Globals.h>
+#include <kenshi/Character.h>      // v1.1.0 kill cam: the hit hooks
+#include <kenshi/MedicalSystem.h>
+#include <kenshi/PlayerInterface.h>
 #include <kenshi/gui/ForgottenGUI.h>
 
 #include <mygui/MyGUI_Gui.h>
@@ -48,6 +51,9 @@ namespace
         float winX, winY;          // window position as a fraction of the screen (0..1); <0 = default
         float tinyX, tinyY;        // v0.2.4: tiny button position (fraction of the screen); <0 = top-right corner
         float tinyAlpha;           // v0.2.5: tiny button opacity, 0.35 (faint, never invisible) .. 1
+        int killCam, kcH, kcMs;    // v1.1.0 kill cam: on (KillCam=1, off by default), its speed (hundredths) and length (ms)
+        int kcOn;                  // v1.1.1: which kinds (slowcore::KC_ON_*), from KillCamKills / KillCamKnockouts / KillCamLimbs
+        int kcDodges, kcOwn;       // v1.1.2: KillCamDodges (a selected character dodges), KillCamOwn (a selected character goes down)
     };
     Settings    g;
     std::string s_dir;
@@ -88,7 +94,14 @@ namespace
         g.tinyAlpha = IniF("TinyAlpha", 1.0f); if (!(g.tinyAlpha >= 0.35f)) g.tinyAlpha = 0.35f; if (g.tinyAlpha > 1.0f) g.tinyAlpha = 1.0f;
         char hk[64]; GetPrivateProfileStringA("PZASlowMo", "Hotkey", "Shift+L", hk, sizeof(hk), IniPath().c_str());
         ParseKey(hk, g.hkCtrl, g.hkShift, g.hkAlt, g.hkKey, 'L');
-        Log("settings: Speed=%.2f range %.2f..%.2f step %.2f Hotkey=%s ShowWindow=%d", g.speed / 100.0f, g.minH / 100.0f, g.maxH / 100.0f, g.stepH / 100.0f, hk, g.showWindow);
+        g.killCam = (int)IniF("KillCam", 0) != 0;
+        g.kcH = slowcore::KcSpeedH(IniF("KillCamSpeed", 0.25f));
+        g.kcMs = slowcore::KcMillis(IniF("KillCamSeconds", 1.0f));
+        g.kcOn = ((int)IniF("KillCamKills", 1) ? slowcore::KC_ON_KILL : 0) | ((int)IniF("KillCamKnockouts", 1) ? slowcore::KC_ON_KO : 0)
+               | ((int)IniF("KillCamLimbs", 1) ? slowcore::KC_ON_LIMB : 0);
+        g.kcDodges = (int)IniF("KillCamDodges", 0) != 0;
+        g.kcOwn = (int)IniF("KillCamOwn", 0) != 0;
+        Log("settings: Speed=%.2f range %.2f..%.2f step %.2f Hotkey=%s ShowWindow=%d KillCam=%d (%.2f for %d ms)", g.speed / 100.0f, g.minH / 100.0f, g.maxH / 100.0f, g.stepH / 100.0f, hk, g.showWindow, g.killCam, g.kcH / 100.0f, g.kcMs);
     }
     void SaveSpeed()
     {
@@ -122,9 +135,14 @@ namespace
             Log("read-back check: set %.2f, Kenshi reports %.3f -> %s", h / 100.0f, got, s_readbackOk ? "OK" : "differs: external-change detection off");
         }
     }
+    // v1.1.0 kill cam: a moment running (the speed it came from; when it ends, GetTickCount64)
+    bool  s_kcOn = false;
+    float s_kcPrev = 1.0f;
+    unsigned long long s_kcUntil = 0;
     void SlowOn(GameWorld* w)
     {
-        const float cur = w->getFrameSpeedMultiplier();
+        float cur = w->getFrameSpeedMultiplier();
+        if (s_kcOn) { cur = s_kcPrev; s_kcOn = false; Log("kill cam: slow motion switched on during the moment - the moment ends, slow motion returns to %.2f", cur); }
         s_prevSpeed = slowcore::ReturnSpeed(cur);                         // never return to a slow speed or to 0
         s_on = true; ++n_toggles;
         SetSpeed(w, g.speed);
@@ -135,6 +153,7 @@ namespace
     void SlowOff(GameWorld* w, const char* why)
     {
         s_on = false;
+        if (s_kcOn) { s_kcOn = false; Log("kill cam: slow motion switched off during the moment - the moment ends"); }
         const bool kenshiSetIt = strcmp(why, "Kenshi speed button") == 0 || strcmp(why, "after loading") == 0;   // Kenshi chose the speed: keep it
         if (w && !kenshiSetIt) w->setGameSpeed(s_prevSpeed, false);
         Log("slow motion OFF (%s), speed %.2f", why, w ? w->getFrameSpeedMultiplier() : 0.0f);
@@ -149,6 +168,100 @@ namespace
         if (s_on) SetSpeed(w, h);
     }
 
+    // ---------- v1.1.0 kill cam: the hit hooks (installed only with KillCam=1) ----------
+    // Character::hitByMeleeAttack / iShotYou: the victim is read just before and just after
+    // the hit (MedicalSystem: isDead, isUnconcious, the four RobotLimbs states). When the attacker is selected
+    // (PlayerInterface::isObjectSelected) and slowcore::KcJudge sees a kill, knockout or a newly severed limb, a request is
+    // left for the frame, which runs the moment. Every read under SEH; a fault only drops that hit.
+    volatile int s_kcRequest = 0;   // a KcKind, taken by the frame
+    volatile bool s_kcOwn = false;  // v1.1.2: the request is our own character going down
+    long n_kcFaults = 0, n_kc[5] = { 0, 0, 0, 0, 0 };
+    bool KcReadRaw(Character* c, slowcore::KcSnap* s)
+    {
+        __try
+        {
+            MedicalSystem* m = c->getMedical();
+            if (!m || m->me != c) return false;
+            s->dead = m->isDead();
+            s->down = m->isUnconcious() || s->dead;
+            int sev = 0;
+            RobotLimbs* rl = m->robotLimbs;
+            if (rl) for (int i = 0; i < 4; ++i) if (rl->states[i] == LIMB_STUMP || rl->states[i] == LIMB_CRUSHED) ++sev;
+            s->severed = sev;
+            s->valid = true;
+            return true;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+    slowcore::KcSnap KcRead(Character* c)
+    {
+        slowcore::KcSnap s = { false, false, false, 0 };
+        if (c && !KcReadRaw(c, &s)) { slowcore::KcSnap z = { false, false, false, 0 }; s = z; ++n_kcFaults; }
+        return s;
+    }
+    bool KcSelectedRaw(Character* c)
+    {
+        __try { return ou && ou->player && ou->player->isObjectSelected((RootObject*)c); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { ++n_kcFaults; return false; }
+    }
+    void KcAfter(Character* victim, Character* attacker, const slowcore::KcSnap& before)
+    {
+        if (s_dead || !victim) return;
+        const bool bySel = attacker && KcSelectedRaw(attacker), onSel = g.kcOwn && KcSelectedRaw(victim);   // v1.1.2: our own character too
+        if (!slowcore::KcCounts(bySel, onSel, attacker == victim, g.kcOwn != 0)) return;
+        const int k = slowcore::KcJudge(before, KcRead(victim), g.kcOn);
+        if (k != slowcore::KC_NONE) { s_kcRequest = k; s_kcOwn = !bySel; }
+    }
+    typedef HitMaterialType (*KcMeleeFn)(Character*, CutDirection, Damages&, Character*, CombatTechniqueData*, int);
+    KcMeleeFn s_kcMeleeOrig = NULL;
+    HitMaterialType KcMeleeHook(Character* self, CutDirection dir, Damages& dmg, Character* who, CombatTechniqueData* tech, int combo)
+    {
+        const slowcore::KcSnap before = KcRead(self);
+        HitMaterialType r = s_kcMeleeOrig(self, dir, dmg, who, tech, combo);
+        if (self) KcAfter(self, who, before);
+        if (self && g.kcDodges && !s_kcRequest && !s_dead && slowcore::KcDodge((int)r, KcSelectedRaw(self), true)) { s_kcRequest = slowcore::KC_DODGE; s_kcOwn = false; }   // v1.1.2
+        return r;
+    }
+    typedef bool (*KcShotFn)(Character*, Character*, Harpoon*, bool);
+    KcShotFn s_kcShotOrig = NULL;
+    bool KcShotHook(Character* self, Character* shooter, Harpoon* poon, bool onPurpose)
+    {
+        const slowcore::KcSnap before = KcRead(self);
+        bool r = s_kcShotOrig(self, shooter, poon, onPurpose);
+        if (self) KcAfter(self, shooter, before);
+        return r;
+    }
+    // the frame: start / extend a moment on a request, end it when its time is up (or hand back when the player changed the speed)
+    void KcFrame(GameWorld* w)
+    {
+        const int req = s_kcRequest;
+        if (req) s_kcRequest = 0;
+        const unsigned long long now = GetTickCount64();
+        const float cur = w->getFrameSpeedMultiplier();
+        const bool paused = w->isPaused();
+        if (req)
+        {
+            ++n_kc[(req >= 0 && req <= 4) ? req : 0];
+            const char* what = req == slowcore::KC_KILL ? "kill" : (req == slowcore::KC_KO ? "knockout" : (req == slowcore::KC_DODGE ? "dodge" : "limb"));
+            const char* whose = req == slowcore::KC_DODGE ? "a dodge by the selected character" : (s_kcOwn ? "the selected character went down / lost a limb" : "by the selected character");
+            if (s_kcOn) { s_kcUntil = slowcore::KcExtend(s_kcUntil, now, g.kcMs); Log("kill cam: %s - the moment goes on (kills %ld, knockouts %ld, limbs %ld)", what, n_kc[1], n_kc[2], n_kc[3]); }
+            else if (slowcore::KcStarts(cur, paused, g.kcH))
+            {
+                s_kcPrev = cur; s_kcOn = true; s_kcUntil = slowcore::KcExtend(0, now, g.kcMs);
+                SetSpeed(w, g.kcH);
+                Log("kill cam: %s (%s) - %.2f for %d ms (was %.2f; kills %ld, knockouts %ld, limbs %ld, dodges %ld)", what, whose, g.kcH / 100.0f, g.kcMs, cur, n_kc[1], n_kc[2], n_kc[3], n_kc[4]);
+            }
+            else Log("kill cam: %s - no moment (%s %.2f)", what, paused ? "paused at" : "already as slow as", cur);
+        }
+        if (!s_kcOn) return;
+        const int end = slowcore::KcEnd(now, s_kcUntil, w->getFrameSpeedMultiplier(), w->isPaused(), g.kcH);
+        if (end == 0) return;
+        s_kcOn = false;
+        if (end == 2) { Log("kill cam: the speed was changed to %.2f during the moment - left as it is", w->getFrameSpeedMultiplier()); if (s_on) SlowOff(w, "Kenshi speed button"); return; }
+        if (s_on) SetSpeed(w, g.speed); else w->setGameSpeed(s_kcPrev, false);
+        Log("kill cam: moment over - speed %.2f", w->getFrameSpeedMultiplier());
+    }
+
     // ---------- the window (proven MyGUI call set, every call under SEH) ----------
     const char* const WIN_NAME = "PZASlowMo_Window";
     MyGUI::Window*    s_win = NULL;
@@ -158,12 +271,12 @@ namespace
     MyGUI::Button*    s_helpBtn = NULL;   // "?": the help page (the window grows to fit it while it is open)
     pzahelp::Panel    s_help;
     int               s_helpH = 0, s_helpMovedFromY = -1;
-    // the help page: four paragraphs in the player's language, a blank line between them
+    // the help page: five paragraphs (v1.1.0: the kill cam) in the player's language, a blank line between them
     std::string HelpText()
     {
-        const slowmo::StrId p[4] = { slowmo::S_HELP_1, slowmo::S_HELP_2, slowmo::S_HELP_3, slowmo::S_HELP_4 };
+        const slowmo::StrId p[5] = { slowmo::S_HELP_1, slowmo::S_HELP_2, slowmo::S_HELP_3, slowmo::S_HELP_4, slowmo::S_HELP_5 };
         std::string t;
-        for (int i = 0; i < 4; ++i) { if (i) t += "\n\n"; t += slowmo::T(p[i]); }
+        for (int i = 0; i < 5; ++i) { if (i) t += "\n\n"; t += slowmo::T(p[i]); }
         return t;
     }
     // PzaHelp's "More" label takes a printf format: built from the translated "More ({1}/{2})" by slowmo::PageFormat
@@ -598,8 +711,9 @@ namespace
             }
         }
         s_hkDown = down;
+        if (g.killCam) KcFrame(w);   // v1.1.0 kill cam
         // Kenshi's own speed buttons / F2-F4 while slow motion is on: hand control back to Kenshi
-        if (s_on && s_readbackOk && !w->isPaused())
+        if (s_on && !s_kcOn && s_readbackOk && !w->isPaused())
         {
             const float cur = w->getFrameSpeedMultiplier();
             if (cur > 0.0f && fabsf(cur - s_setH / 100.0f) > 0.004f) { ++n_external; Log("speed changed to %.2f by Kenshi (count %d)", cur, n_external); SlowOff(w, "Kenshi speed button"); }
@@ -697,11 +811,17 @@ __declspec(dllexport) void startPlugin()
     HANDLE h = CreateMutexA(NULL, FALSE, mtx);
     if (h && GetLastError() == ERROR_ALREADY_EXISTS) { Log("already loaded - this copy is disabled"); CloseHandle(h); return; }
     s_dir = ModuleDir();
-    Log("v1.0.1 - PZA's SlowMo (one click or Shift+L; slider 0.10-0.60) for Kenshi, by PZA");
+    Log("v1.1.2 - PZA's SlowMo (one click or Shift+L; slider 0.10-0.60) for Kenshi, by PZA");
     LoadSettings();
     slowmo::Strings_Init(IniPath().c_str(), &LogLine);
     if (!g.enabled) { Log("Enabled=0 - inactive"); return; }
     if (KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), &LoopHook, &s_loopOrig) != KenshiLib::SUCCESS)
     { Log("main loop hook FAILED - inactive"); return; }
     Log("hooked GameWorld::mainLoop_GPUSensitiveStuff");
+    if (!g.killCam) { Log("kill cam off (KillCam=0 in PZASlowMo.ini; 1 turns it on after a restart)"); return; }
+    const bool m = KenshiLib::AddHook(KenshiLib::GetRealAddress(&Character::_NV_hitByMeleeAttack), &KcMeleeHook, &s_kcMeleeOrig) == KenshiLib::SUCCESS;
+    const bool s = KenshiLib::AddHook(KenshiLib::GetRealAddress(&Character::iShotYou), &KcShotHook, &s_kcShotOrig) == KenshiLib::SUCCESS;
+    Log("kill cam ON: %.2f for %d ms on a selected character's %s%s%s%s%s (hooks: melee %s, ranged %s)", g.kcH / 100.0f, g.kcMs,
+        (g.kcOn & slowcore::KC_ON_KILL) ? "kills " : "", (g.kcOn & slowcore::KC_ON_KO) ? "knockouts " : "", (g.kcOn & slowcore::KC_ON_LIMB) ? "limbs " : "",
+        g.kcDodges ? "+ dodges " : "", g.kcOwn ? "+ its own going down" : "", m ? "ok" : "FAILED", s ? "ok" : "FAILED");
 }
